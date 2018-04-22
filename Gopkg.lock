@@ -41,6 +41,12 @@
   revision = "f855bee0205c35e6a055b86cc341effea0f446ce"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/rjeczalik/notify"
+  packages = ["."]
+  revision = "d152f3ce359a5464dc41e84a8919fc67e55bbbf0"
+
+[[projects]]
   name = "github.com/spf13/cobra"
   packages = ["."]
   revision = "a1f051bc3eba734da4772d60e2d677f47cf93ef4"
@@ -51,6 +57,12 @@
   packages = ["."]
   revision = "583c0c0531f06d5278b7d917446061adc344b5cd"
   version = "v1.0.1"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/sys"
+  packages = ["unix"]
+  revision = "79b0c6888797020a994db17c8510466c72fe75d9"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -67,6 +79,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "aab01700a9f9c8db0c78cd569ac10d493381ed6d6a60b5890e01bf790ebe1267"
+  inputs-digest = "38435d1280755dabdecde088e608a92706d681d7c46777b1bee811dbb298a291"
   solver-name = "gps-cdcl"
   solver-version = 1
