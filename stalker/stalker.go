@@ -1,8 +1,10 @@
 package stalker
 
 import (
+	"bytes"
+	"io"
 	"os"
-	"strings"
+	"sync"
 
 	"github.com/rjeczalik/notify"
 )
@@ -16,86 +18,80 @@ var (
 	MaxBufferSize int64 = 20480
 )
 
-var (
-	stalkers = make(map[string]*stalker)
-)
-
 type (
 	stalker struct {
 		filename string
 		filepos  int64
 		notifier chan notify.EventInfo
-		out      chan Value
 	}
 
 	// Value ...
 	Value struct {
-		Lines []string
-		Error error
+		Source string
+		Buffer []byte
+		Error  error
 	}
 )
 
 // Watch creates a new Stalker to watch over a file.
-func Watch(filename string) (<-chan Value, error) {
-	s := &stalker{
-		filename: filename,
-		notifier: make(chan notify.EventInfo, ChannelSize),
-		out:      make(chan Value),
+func Watch(filenames []string) <-chan Value {
+	out := make(chan Value)
+	wg := &sync.WaitGroup{}
+
+	wg.Add(len(filenames))
+
+	for _, fn := range filenames {
+		s := &stalker{
+			filename: fn,
+			notifier: make(chan notify.EventInfo, ChannelSize),
+		}
+
+		go start(s, out, wg)
 	}
-
-	if err := s.start(); err != nil {
-		return nil, err
-	}
-
-	stalkers[filename] = s
-	return s.out, nil
-}
-
-// Unwatch ...
-func Unwatch(filename string) {
-	s, ok := stalkers[filename]
-
-	if ok {
-		cleanUp(s)
-		delete(stalkers, filename)
-	}
-}
-
-func (s *stalker) start() error {
-	if err := notify.Watch(s.filename, s.notifier, notify.Write); err != nil {
-		return err
-	}
-
-	ip, err := initialPos(s.filename)
-	if err != nil {
-		cleanUp(s)
-		return err
-	}
-
-	lines, _, err := readLines(s.filename, ip)
-	if err != nil {
-		cleanUp(s)
-		return err
-	}
-
-	s.filepos = ip
-	s.out <- Value{Lines: lines}
 
 	go func() {
-		for range s.notifier {
-			v := Value{}
-			ls, count, err := readLines(s.filename, s.filepos)
-			if err != nil {
-				v.Error = err
-			} else {
-				v.Lines = ls
-				s.filepos += int64(count)
-			}
-			s.out <- v
-		}
+		wg.Wait()
+		close(out)
 	}()
 
-	return nil
+	return out
+}
+
+func start(s *stalker, writeTo chan<- Value, wg *sync.WaitGroup) {
+	if err := notify.Watch(s.filename, s.notifier, notify.Write); err != nil {
+		writeTo <- Value{Source: s.filename, Error: err}
+		return
+	}
+
+	if _, err := os.Stat(s.filename); os.IsNotExist(err) {
+		writeTo <- Value{Source: s.filename, Error: err}
+		return
+	}
+
+	pos, err := initialPos(s.filename)
+	buffer, count, err := readAt(s.filename, pos)
+
+	buffer = dropFirstLine(buffer)
+	s.filepos = pos + count
+
+	writeTo <- Value{
+		Source: s.filename,
+		Buffer: buffer,
+		Error:  err,
+	}
+
+	for range s.notifier {
+		buffer, count, err := readAt(s.filename, s.filepos)
+		s.filepos += count
+
+		writeTo <- Value{
+			Source: s.filename,
+			Buffer: buffer,
+			Error:  err,
+		}
+	}
+
+	wg.Done()
 }
 
 func initialPos(filename string) (int64, error) {
@@ -111,39 +107,33 @@ func initialPos(filename string) (int64, error) {
 	return 0, nil
 }
 
-func readLines(filename string, pos int64) ([]string, int, error) {
-	b, nOfBytes, err := readAt(filename, pos)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	return splitBufferIntoLines(b), nOfBytes, nil
-}
-
-func readAt(filename string, at int64) ([]byte, int, error) {
+func readAt(filename string, at int64) ([]byte, int64, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, 0, err
 	}
 	defer file.Close()
 
-	buffer := make([]byte, MaxBufferSize)
+	buffer := make([]byte, MaxBufferSize+1)
 	count, err := file.ReadAt(buffer, at)
-	if err != nil {
-		return nil, 0, err
+
+	if err != nil && err != io.EOF {
+		return nil, int64(count), err
 	}
 
-	return buffer, count, nil
+	return buffer[:count], int64(count), nil
 }
 
-func splitBufferIntoLines(b []byte) []string {
-	lines := strings.Split(string(b), "\n")
-	// the first line is dropped in case we read a
-	// incomplete line
-	return lines[1:]
+func dropFirstLine(bs []byte) []byte {
+	idx := bytes.Index(bs, []byte("\n"))
+	if idx >= 0 {
+		return bs[idx+1:]
+	}
+	return bs
 }
 
-func cleanUp(s *stalker) {
-	close(s.out)
-	notify.Stop(s.notifier)
-}
+// func stop(s *stalker) {
+// 	if s != nil && s.notifier != nil {
+// 		notify.Stop(s.notifier)
+// 	}
+// }

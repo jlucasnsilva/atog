@@ -1,0 +1,21 @@
+xXx
+111
+222
+333
+line 111
+line 112
+The sentence "hello world" is printed in the line 39
+hello world!
+=D
+=(
+)=
+~~~~~~
+^~^~^
+ahoy
+=D
+=)
+=O
+BUaaaaaaaaaaaaaah
+[Mon Apr 16 12:05:01.150296 2018] [php5:error] [pid 6221] [client 127.0.0.1:57798] PHP Fatal error:  Cannot use isset() on the result of a function call (you can use "null !== func()" instead) in /srv/www/htdocs/suaFormatura/app/view/modulos/Fmt/php/contratoFornecAlt.php on line 163, referer: http://suaformatura//administracaoepsicologia201901cesmac
+[Mon Apr 16 12:05:01.150296 2018] [php5:error] [pid 6221] [client 127.0.0.1:57798] PHP Fatal error:  Cannot use isset() on the result of a function call (you can use "null !== func()" instead) in /srv/www/htdocs/suaFormatura/app/view/modulos/Fmt/php/contratoFornecAlt.php on line 163, referer: http://suaformatura//administracaoepsicologia201901cesmac
+[Mon Apr 16 12:05:01.150296 2018] [php5:error] [pid 6221] [client 127.0.0.1:57798] PHP Fatal error:  Cannot use isset() on the result of a function call (you can use "null !== func()" instead) in /srv/www/htdocs/suaFormatura/app/view/modulos/Fmt/php/contratoFornecAlt.php on line 163, referer: http://suaformatura//administracaoepsicologia201901cesmac

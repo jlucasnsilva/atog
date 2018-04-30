@@ -1,9 +1,8 @@
 // Copyright © 2018 João Lucas Nunes e Silva
 package main
 
-import "github.com/jlucasnsilva/atog/ui"
+import "github.com/jlucasnsilva/atog/cmd"
 
 func main() {
-	// cmd.Execute()
-	ui.Execute()
+	cmd.Execute()
 }
