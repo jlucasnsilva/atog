@@ -61,9 +61,10 @@ func shortcut(i int) rune {
 	return shortcuts[i]
 }
 
-func newRouter(filenames []string, textView *tview.TextView, fileList *tview.List) *controller {
-	fns := append([]string{atogTag}, filenames...)
+func newController(args Params, textView *tview.TextView, fileList *tview.List) *controller {
+	fns := append([]string{atogTag}, args.Filenames...)
 	con := &controller{}
+
 	con.textView = textView
 	con.fileList = fileList
 	con.indexes = make(map[string]int)
@@ -72,11 +73,12 @@ func newRouter(filenames []string, textView *tview.TextView, fileList *tview.Lis
 
 	for i, fn := range fns {
 		if fn != atogTag {
-			con.fileList.AddItem(fn, "", shortcut(i), nil)
+			con.fileList.AddItem(fn, "\t(0)", shortcut(i), nil)
 		} else {
-			con.fileList.AddItem(fn+" (0)", "Errors log", shortcut(i), nil)
+			con.fileList.AddItem(fn, "Errors log (0)", shortcut(i), nil)
 		}
-		con.logViews[fn] = newLogView()
+
+		con.logViews[fn] = newLogView(args.BufferSize)
 		con.indexes[fn] = i
 		con.invIndexes[i] = fn
 	}
@@ -86,18 +88,26 @@ func newRouter(filenames []string, textView *tview.TextView, fileList *tview.Lis
 		con.update(fn)
 	}).SetCurrentItem(1)
 
+	atogv := con.logViews[atogTag]
+	for _, fn := range args.Filenames {
+		stalker.Watch(fn, stalker.Params{
+			Empty:  args.Empty,
+			Err:    atogv,
+			Target: con.logViews[fn],
+		})
+	}
+
 	return con
 }
 
 func (c *controller) updateListItem(filename string) {
 	i := c.indexes[filename]
 	view := c.logViews[filename]
-	text := fmt.Sprintf("%v (%v)", filename, view.dirt())
 
 	if filename != atogTag {
-		c.fileList.SetItemText(i, text, "")
+		c.fileList.SetItemText(i, filename, fmt.Sprintf("\t(%v)", view.dirt()))
 	} else {
-		c.fileList.SetItemText(i, text, "Errors log")
+		c.fileList.SetItemText(i, filename, fmt.Sprintf("Errors log (%v)", view.dirt()))
 	}
 }
 
@@ -115,20 +125,12 @@ func (c *controller) update(source string) {
 	c.updateListItem(source)
 }
 
-func (c *controller) handle(v stalker.Value) {
-	var source string
-	var buffer []byte
+func (c *controller) handle(app *tview.Application) {
+	app.Draw()
 
-	if v.Error != nil {
-		source = atogTag
-		buffer = []byte(fmt.Sprintf("@{{ %v }}\n\t%v\n", source, v.Error))
-	} else {
-		source = v.Source
-		buffer = v.Buffer
+	for {
+		source := stalker.WaitEvent()
+		c.update(source)
+		app.Draw()
 	}
-
-	view := c.logViews[source]
-
-	view.write(buffer)
-	c.update(source)
 }

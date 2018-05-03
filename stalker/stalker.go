@@ -29,9 +29,9 @@ package stalker
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
-	"sync"
 
 	"github.com/rjeczalik/notify"
 )
@@ -43,88 +43,78 @@ var (
 	// MaxBufferSize - at most, the last BufferSize bytes are read from a
 	// file whenever it needs to be read.
 	MaxBufferSize int64 = 20480
+
+	waitEvent = make(chan string)
 )
 
-type (
-	stalker struct {
-		filename string
-		filepos  int64
-		notifier chan notify.EventInfo
-	}
-
-	// Value ...
-	Value struct {
-		Source string
-		Buffer []byte
-		Error  error
-	}
-)
-
-// Watch creates a new Stalker to watch over a file.
-func Watch(filenames []string) <-chan Value {
-	out := make(chan Value)
-	wg := &sync.WaitGroup{}
-
-	wg.Add(len(filenames))
-
-	for _, fn := range filenames {
-		s := &stalker{
-			filename: fn,
-			notifier: make(chan notify.EventInfo, ChannelSize),
-		}
-
-		go start(s, out, wg)
-	}
-
-	go func() {
-		wg.Wait()
-		close(out)
-	}()
-
-	return out
+// Params ...
+type Params struct {
+	Target io.Writer
+	Err    io.Writer
+	Empty  bool
 }
 
-func start(s *stalker, writeTo chan<- Value, wg *sync.WaitGroup) {
-	if err := notify.Watch(s.filename, s.notifier, notify.Write); err != nil {
-		writeTo <- Value{Source: s.filename, Error: err}
-		return
-	}
-
-	if _, err := os.Stat(s.filename); os.IsNotExist(err) {
-		writeTo <- Value{Source: s.filename, Error: err}
-		return
-	}
-
-	pos, err := initialPos(s.filename)
-	buffer, count, err := readAt(s.filename, pos)
-
-	buffer = dropFirstLine(buffer)
-	s.filepos = pos + count
-
-	writeTo <- Value{
-		Source: s.filename,
-		Buffer: buffer,
-		Error:  err,
-	}
-
-	for range s.notifier {
-		buffer, count, err := readAt(s.filename, s.filepos)
-		s.filepos += count
-
-		writeTo <- Value{
-			Source: s.filename,
-			Buffer: buffer,
-			Error:  err,
+// Watch ...
+func Watch(filename string, params Params) {
+	go func(fname string, args Params) {
+		file, err := os.Open(fname)
+		if err != nil {
+			args.Err.Write(makeError(fname, err))
 		}
-	}
+		defer file.Close()
 
-	wg.Done()
+		notifier := make(chan notify.EventInfo, ChannelSize)
+		if err := notify.Watch(fname, notifier, notify.Write); err != nil {
+			args.Err.Write(makeError(fname, err))
+		}
+		defer notify.Stop(notifier)
+
+		run(file, notifier, &args)
+	}(filename, params)
 }
 
-func initialPos(filename string) (int64, error) {
-	stat, err := os.Stat(filename)
+// WaitEvent ...
+func WaitEvent() string {
+	return <-waitEvent
+}
+
+func run(file *os.File, notifier chan notify.EventInfo, args *Params) {
+	fp, err := initialPos(file, args.Empty)
+	if err != nil {
+		args.Err.Write(makeError(file.Name(), err))
+	}
+
+	buffer, count, err := readAt(file, fp)
+	fp += count
+	if err == nil {
+		buffer = dropFirstLine(buffer)
+		args.Target.Write(buffer)
+	} else {
+		args.Err.Write(makeError(file.Name(), err))
+	}
+
+	for range notifier {
+		buffer, count, err := readAt(file, fp)
+		fp += count
+
+		if err == nil {
+			args.Target.Write(buffer)
+		} else {
+			args.Err.Write(makeError(file.Name(), err))
+		}
+
+		waitEvent <- file.Name()
+	}
+}
+
+func initialPos(file *os.File, empty bool) (int64, error) {
+	stat, err := file.Stat()
 	if err != nil {
 		return 0, err
+	}
+
+	if empty {
+		return stat.Size(), nil
 	}
 
 	if fileSize := stat.Size(); fileSize > MaxBufferSize {
@@ -134,13 +124,7 @@ func initialPos(filename string) (int64, error) {
 	return 0, nil
 }
 
-func readAt(filename string, at int64) ([]byte, int64, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer file.Close()
-
+func readAt(file *os.File, at int64) ([]byte, int64, error) {
 	buffer := make([]byte, MaxBufferSize+1)
 	count, err := file.ReadAt(buffer, at)
 
@@ -159,8 +143,6 @@ func dropFirstLine(bs []byte) []byte {
 	return bs
 }
 
-// func stop(s *stalker) {
-// 	if s != nil && s.notifier != nil {
-// 		notify.Stop(s.notifier)
-// 	}
-// }
+func makeError(filename string, err error) []byte {
+	return []byte(fmt.Sprintf("{{ %v }}\n%v", filename, err.Error()))
+}

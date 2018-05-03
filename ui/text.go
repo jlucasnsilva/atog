@@ -34,48 +34,6 @@ import (
 	"strings"
 )
 
-func format(currentText string, newText []byte) string {
-	lines := strings.Split(string(newText), "\n")
-	return fmt.Sprintf("%v\n%v", currentText, formatText(lines))
-}
-
-func formatText(lines []string) string {
-	return joinLines(processText(lines))
-}
-
-func joinLines(lines []string) string {
-	ls := make([]string, len(lines))
-
-	for i, line := range lines {
-		ls[i] = fmt.Sprintf("%v", line)
-	}
-
-	return strings.Join(ls, "\n\n")
-}
-
-func processText(lines []string) []string {
-	s := make([]string, len(lines))
-
-	for i, line := range lines {
-		s[i] = processLine(line)
-	}
-
-	return s
-}
-
-func processLine(line string) string {
-	regex := regexp.MustCompile(`:\s+`)
-	parts := regex.Split(line, -1)
-	whole := strings.Join(parts, ":\n\t")
-	return highlight(whole)
-}
-
-func insertLineBreaks(line string) string {
-	regex := regexp.MustCompile(`:\s+`)
-	parts := regex.Split(line, -1)
-	return strings.Join(parts, ":\n\t")
-}
-
 func highlight(s string) string {
 	runes := []rune(s)
 	runesCount := len(runes)
@@ -115,6 +73,10 @@ func highlight(s string) string {
 						balance++
 					}
 				}
+			}
+
+			if runes[i] == o && balance == 0 {
+				i++
 			}
 		case strings.ContainsRune("\"'`", c):
 			out.WriteString("[#217844]")

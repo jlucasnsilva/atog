@@ -29,6 +29,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/rivo/tview"
@@ -36,36 +37,56 @@ import (
 
 type logView struct {
 	lock  *sync.Mutex
-	text  string
-	dirtv uint
+	buff  *viewBuffer
+	dirtv int
 }
 
-func newLogView() *logView {
-	return &logView{lock: &sync.Mutex{}}
-}
-
-func (st *logView) write(buff []byte) {
-	if len(buff) > 0 {
-		st.lock.Lock()
-		defer st.lock.Unlock()
-
-		st.text = format(st.text, buff)
-		st.dirtv++
+func newLogView(size uint) *logView {
+	return &logView{
+		lock: &sync.Mutex{},
+		buff: newViewBuffer(size),
 	}
 }
 
-func (st *logView) flush(tv *tview.TextView) {
-	st.lock.Lock()
-	defer st.lock.Unlock()
+// Write ...
+func (v *logView) Write(p []byte) (n int, err error) {
+	pc := len(p)
 
-	fmt.Fprint(tv, st.text)
-	tv.ScrollToEnd()
-	st.dirtv = 0
+	if pc < 1 {
+		return 0, nil
+	}
+
+	v.lock.Lock()
+	defer v.lock.Unlock()
+
+	ls := strings.Split(string(p), "\n")
+	lines := make([]string, 0, len(ls))
+	for _, line := range ls {
+		if line != "\n" {
+			lines = append(lines, line)
+		}
+	}
+
+	for _, line := range lines {
+		v.buff.Add(highlight(line))
+	}
+
+	v.dirtv += len(lines)
+	return pc, nil
 }
 
-func (st *logView) dirt() uint {
-	st.lock.Lock()
-	defer st.lock.Unlock()
+func (v *logView) flush(tv *tview.TextView) {
+	v.lock.Lock()
+	defer v.lock.Unlock()
 
-	return st.dirtv
+	fmt.Fprint(tv, v.buff.String("\n"))
+	tv.ScrollToEnd()
+	v.dirtv = 0
+}
+
+func (v *logView) dirt() int {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+
+	return v.dirtv
 }

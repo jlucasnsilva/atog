@@ -28,9 +28,12 @@
 package cmd
 
 import (
-	"github.com/jlucasnsilva/atog/stalker"
 	"github.com/jlucasnsilva/atog/ui"
 	"github.com/spf13/cobra"
+)
+
+var (
+	uiParams ui.Params
 )
 
 var viewCmd = &cobra.Command{
@@ -38,7 +41,15 @@ var viewCmd = &cobra.Command{
 	Short: "Watch the log files",
 	Long:  `Pass to this command a list of files to be watched.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		values := stalker.Watch(args)
-		ui.Execute(args, values)
+		ps := uiParams
+		ps.Filenames = args
+		ui.Execute(ps)
 	},
+}
+
+func init() {
+	flags := viewCmd.Flags()
+
+	flags.UintVarP(&uiParams.BufferSize, "buffer-size", "s", 10, "Buffer size")
+	flags.BoolVarP(&uiParams.Empty, "empty", "e", false, "Empty")
 }

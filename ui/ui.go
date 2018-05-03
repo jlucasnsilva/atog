@@ -30,12 +30,18 @@ package ui
 import (
 	"log"
 
-	"github.com/jlucasnsilva/atog/stalker"
 	"github.com/rivo/tview"
 )
 
+// Params ...
+type Params struct {
+	Filenames  []string
+	Empty      bool
+	BufferSize uint
+}
+
 // Execute ...
-func Execute(filenames []string, values <-chan stalker.Value) {
+func Execute(args Params) {
 	fileList := tview.NewList()
 
 	textView := tview.NewTextView().
@@ -54,11 +60,9 @@ func Execute(filenames []string, values <-chan stalker.Value) {
 	app := tview.NewApplication()
 
 	go func() {
-		router := newRouter(filenames, textView, fileList)
-		for v := range values {
-			router.handle(v)
-			app.Draw()
-		}
+		c := newController(args, textView, fileList)
+		app.Draw()
+		c.handle(app)
 	}()
 
 	if err := app.SetRoot(ui, true).Run(); err != nil {
