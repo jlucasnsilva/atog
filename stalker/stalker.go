@@ -79,26 +79,30 @@ func WaitEvent() string {
 }
 
 func run(file *os.File, notifier chan notify.EventInfo, args *Params) {
+	buffer := make([]byte, MaxBufferSize+1)
+
 	fp, err := initialPos(file, args.Empty)
 	if err != nil {
 		args.Err.Write(makeError(file.Name(), err))
 	}
 
-	buffer, count, err := readAt(file, fp)
+	count, err := readAt(file, fp, buffer)
 	fp += count
+
 	if err == nil {
-		buffer = dropFirstLine(buffer)
-		args.Target.Write(buffer)
+		b := dropFirstLine(buffer[:count])
+		args.Target.Write(b)
 	} else {
 		args.Err.Write(makeError(file.Name(), err))
 	}
 
 	for range notifier {
-		buffer, count, err := readAt(file, fp)
+		count, err := readAt(file, fp, buffer)
 		fp += count
 
 		if err == nil {
-			args.Target.Write(buffer)
+			b := buffer[:count]
+			args.Target.Write(b)
 		} else {
 			args.Err.Write(makeError(file.Name(), err))
 		}
@@ -107,32 +111,29 @@ func run(file *os.File, notifier chan notify.EventInfo, args *Params) {
 	}
 }
 
-func initialPos(file *os.File, empty bool) (int64, error) {
+func initialPos(file *os.File, eof bool) (int64, error) {
 	stat, err := file.Stat()
 	if err != nil {
 		return 0, err
 	}
 
-	if empty {
-		return stat.Size(), nil
-	}
-
-	if fileSize := stat.Size(); fileSize > MaxBufferSize {
+	if fileSize := stat.Size(); eof {
+		return fileSize, nil
+	} else if fileSize > MaxBufferSize {
 		return fileSize - MaxBufferSize, nil
 	}
 
 	return 0, nil
 }
 
-func readAt(file *os.File, at int64) ([]byte, int64, error) {
-	buffer := make([]byte, MaxBufferSize+1)
+func readAt(file *os.File, at int64, buffer []byte) (int64, error) {
 	count, err := file.ReadAt(buffer, at)
 
 	if err != nil && err != io.EOF {
-		return nil, int64(count), err
+		return int64(count), err
 	}
 
-	return buffer[:count], int64(count), nil
+	return int64(count), nil
 }
 
 func dropFirstLine(bs []byte) []byte {

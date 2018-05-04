@@ -36,7 +36,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "atog",
-	Short: "Watch log files",
+	Short: "Watch log files. Like 'tail -f' with some colors",
 	Long:  `A little cli application to watch log files =)`,
 }
 
@@ -52,7 +52,6 @@ func Execute() {
 func init() {
 	rootCmd.AddCommand(
 		versionCmd,
-		helpCmd,
 		viewCmd,
 	)
 }

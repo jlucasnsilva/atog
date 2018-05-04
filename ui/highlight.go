@@ -25,12 +25,68 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package cmd
+package ui
 
-import "github.com/spf13/cobra"
+import (
+	"bytes"
+	"fmt"
+	"regexp"
+	"strings"
+)
 
-var helpCmd = &cobra.Command{
-	Use:   "help",
-	Short: "Atog tog tog tog",
-	Long:  `Atog tog tog tog tog tog tog tog =)`,
+func highlight(s string) string {
+	out := bytes.Buffer{}
+	quote := ' '
+	delimBalance := 0
+
+	for _, c := range []rune(s) {
+		switch {
+		case strings.ContainsRune("{[(", c):
+			if delimBalance < 1 {
+				out.WriteString("[#c83737]")
+				out.WriteRune(c)
+				out.WriteString("[white:#162d50]")
+			} else {
+				out.WriteRune(c)
+			}
+
+			delimBalance++
+		case strings.ContainsRune("}])", c):
+			if delimBalance > 1 {
+				out.WriteRune(c)
+			} else {
+				out.WriteString("[#c83737:black]")
+				out.WriteRune(c)
+				out.WriteString("[white]")
+			}
+
+			delimBalance--
+		case strings.ContainsRune("\"'`", c):
+			if quote == ' ' {
+				out.WriteString("[#217844]")
+				out.WriteRune(c)
+				quote = c
+			} else if quote == c {
+				out.WriteRune(c)
+				out.WriteString("[white]")
+				quote = ' '
+			} else {
+				out.WriteRune(c)
+				out.WriteString("[white]")
+			}
+		case strings.ContainsRune("/\\:-=.", c):
+			out.WriteString("[#c83737]")
+			out.WriteRune(c)
+			out.WriteString("[white]")
+		default:
+			out.WriteRune(c)
+		}
+	}
+
+	out.WriteString("[white:black]")
+	r := regexp.MustCompile(`(line\s\d+)|(Line\s\d+)|(LINE\s\d+)|(L\d+)|(col\s\d+)|(Col\s\d+)|(column\s\d+)|(Column\s\d+)|(C\d+)`)
+
+	return r.ReplaceAllStringFunc(out.String(), func(x string) string {
+		return fmt.Sprintf("[#c83737]%v[white]", x)
+	})
 }

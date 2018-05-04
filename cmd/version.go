@@ -35,9 +35,9 @@ import (
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the version number of atog",
-	Long:  `Print the version number of atog`,
+	Short: "Print the current atog's version.",
+	Long:  `Print the version atog's number of atog.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Atog v0.1")
+		fmt.Println("Atog v0.2")
 	},
 }

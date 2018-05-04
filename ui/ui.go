@@ -42,6 +42,10 @@ type Params struct {
 
 // Execute ...
 func Execute(args Params) {
+	if len(args.Filenames) < 1 {
+		return
+	}
+
 	fileList := tview.NewList()
 
 	textView := tview.NewTextView().
@@ -61,7 +65,6 @@ func Execute(args Params) {
 
 	go func() {
 		c := newController(args, textView, fileList)
-		app.Draw()
 		c.handle(app)
 	}()
 

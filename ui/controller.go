@@ -55,7 +55,7 @@ func shortcut(i int) rune {
 		'z',
 	}
 
-	if i >= len(shortcuts) {
+	if i >= len(shortcuts) || i < 0 {
 		return ' '
 	}
 	return shortcuts[i]
@@ -83,11 +83,6 @@ func newController(args Params, textView *tview.TextView, fileList *tview.List) 
 		con.invIndexes[i] = fn
 	}
 
-	fileList.SetChangedFunc(func(i int, title string, description string, shortcut rune) {
-		fn := con.invIndexes[i]
-		con.update(fn)
-	}).SetCurrentItem(1)
-
 	atogv := con.logViews[atogTag]
 	for _, fn := range args.Filenames {
 		stalker.Watch(fn, stalker.Params{
@@ -96,6 +91,11 @@ func newController(args Params, textView *tview.TextView, fileList *tview.List) 
 			Target: con.logViews[fn],
 		})
 	}
+
+	fileList.SetChangedFunc(func(i int, title string, description string, shortcut rune) {
+		fn := con.invIndexes[i]
+		con.update(fn)
+	}).SetCurrentItem(1)
 
 	return con
 }

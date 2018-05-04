@@ -37,9 +37,10 @@ var (
 )
 
 var viewCmd = &cobra.Command{
-	Use:   "view",
-	Short: "Watch the log files",
-	Long:  `Pass to this command a list of files to be watched.`,
+	Use:     "view filename*",
+	Short:   "Watch the log files.",
+	Long:    `Pass to this command a list of files to be watched.`,
+	Example: "atog view example.log",
 	Run: func(cmd *cobra.Command, args []string) {
 		ps := uiParams
 		ps.Filenames = args
@@ -50,6 +51,6 @@ var viewCmd = &cobra.Command{
 func init() {
 	flags := viewCmd.Flags()
 
-	flags.UintVarP(&uiParams.BufferSize, "buffer-size", "s", 10, "Buffer size")
-	flags.BoolVarP(&uiParams.Empty, "empty", "e", false, "Empty")
+	flags.UintVarP(&uiParams.BufferSize, "buffer-size", "s", 10, "Maximum number of log messages to be displayed.")
+	flags.BoolVarP(&uiParams.Empty, "empty", "e", false, "If true, no log messages prior to the openning of atog will\nbe displayed.")
 }
