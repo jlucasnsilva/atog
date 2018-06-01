@@ -31,13 +31,48 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/jlucasnsilva/atog/tabbed"
+	"github.com/jlucasnsilva/atog/view"
+	"github.com/jlucasnsilva/atog/watch"
 	"github.com/spf13/cobra"
+)
+
+var (
+	splitView bool
 )
 
 var rootCmd = &cobra.Command{
 	Use:   "atog",
-	Short: "Watch log files. Like 'tail -f' with some colors",
-	Long:  `A little cli application to watch log files =)`,
+	Short: "Displays highlighted text from stdin or a file",
+	Long: `Displays highlighted text from stdin when no argument
+is passed or displays highlighted text from text file
+when one argument is passed.`,
+	Example: `atog main.go
+tail -f  example.log | atog`,
+	Run: func(cmd *cobra.Command, args []string) {
+		nArgs := len(args)
+		if nArgs == 0 {
+			if splitView {
+				tabbed.Show(os.Stdin)
+			} else {
+				watch.Show(os.Stdin)
+			}
+		} else if nArgs == 1 {
+			file, err := os.Open(args[0])
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			defer file.Close()
+			view.Show(file)
+		} else {
+			fmt.Printf("Only the content of the first file (%v) will be displayed.", args[0])
+		}
+	},
+}
+
+func init() {
+	rootCmd.Flags().BoolVarP(&splitView, "split", "s", false, "")
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -47,11 +82,4 @@ func Execute() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-}
-
-func init() {
-	rootCmd.AddCommand(
-		versionCmd,
-		viewCmd,
-	)
 }

@@ -27,7 +27,9 @@
 
 package main
 
-import "github.com/jlucasnsilva/atog/cmd"
+import (
+	"github.com/jlucasnsilva/atog/cmd"
+)
 
 func main() {
 	cmd.Execute()
