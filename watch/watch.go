@@ -11,7 +11,7 @@ import (
 func Show(r io.Reader) {
 	scanner := bufio.NewScanner(r)
 
-	atog.RunSimpleApp(func() string {
+	atog.RunSimpleLoopApp(func() string {
 		if scanner.Scan() {
 			return atog.Highlight(scanner.Text())
 		}

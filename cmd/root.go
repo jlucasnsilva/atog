@@ -44,20 +44,22 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "atog",
 	Short: "Displays highlighted text from stdin or a file",
-	Long: `Displays highlighted text from stdin when no argument
-is passed or displays highlighted text from text file
-when one argument is passed.`,
-	Example: `atog main.go
-tail -f  example.log | atog`,
+	Long: `
+Displays highlighted text from stdin when no argument is passed or displays
+highlighted text from text file when one argument is passed.`,
+	Example: `    atog main.go
+	
+    tail -f  example.log | atog`,
 	Run: func(cmd *cobra.Command, args []string) {
 		nArgs := len(args)
-		if nArgs == 0 {
+		switch nArgs {
+		case 0:
 			if splitView {
 				tabbed.Show(os.Stdin)
 			} else {
 				watch.Show(os.Stdin)
 			}
-		} else if nArgs == 1 {
+		case 1:
 			file, err := os.Open(args[0])
 			if err != nil {
 				fmt.Println(err)
@@ -65,8 +67,8 @@ tail -f  example.log | atog`,
 			}
 			defer file.Close()
 			view.Show(file)
-		} else {
-			fmt.Printf("Only the content of the first file (%v) will be displayed.", args[0])
+		default:
+			fmt.Printf("Pass only one file at a time.")
 		}
 	},
 }

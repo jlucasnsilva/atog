@@ -33,6 +33,20 @@ func RunSimpleApp(step func() string) {
 	app, textView := NewTextViewApp()
 
 	go func() {
+		fmt.Fprintln(textView, Highlight(step()))
+		app.Draw()
+	}()
+
+	if err := app.SetRoot(textView, true).Run(); err != nil {
+		log.Fatalln(err)
+	}
+}
+
+// RunSimpleLoopApp ...
+func RunSimpleLoopApp(step func() string) {
+	app, textView := NewTextViewApp()
+
+	go func() {
 		for {
 			fmt.Fprintln(textView, step())
 			app.Draw()

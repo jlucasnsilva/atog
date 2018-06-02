@@ -3,24 +3,24 @@ package tabbed
 import (
 	"bytes"
 	"fmt"
+	"strings"
+	"unicode"
+
+	"github.com/gdamore/tcell"
 
 	"github.com/jlucasnsilva/atog/atog"
 	"github.com/rivo/tview"
 )
 
 type (
-	logBuffer struct {
-		buff  *bytes.Buffer
-		dirty bool
-	}
-
 	controller struct {
-		currentFile string
-		fileList    *tview.List
-		textView    *tview.TextView
-		indexOf     map[string]int
-		invIndexOf  []string
-		buffers     map[string]*logBuffer
+		currentFile   string
+		app           *tview.Application
+		fileList      *tview.List
+		textView      *tview.TextView
+		fileByIndex   []string
+		bufferByIndex []*bytes.Buffer
+		buffers       map[string]*bytes.Buffer
 	}
 )
 
@@ -40,58 +40,68 @@ func shortcut(i int) rune {
 	return shortcuts[i]
 }
 
-func newController(fileList *tview.List, textView *tview.TextView) *controller {
-	con := &controller{}
+func newController(fileList *tview.List, textView *tview.TextView, app *tview.Application) *controller {
+	controller := &controller{
+		buffers:       make(map[string]*bytes.Buffer),
+		bufferByIndex: make([]*bytes.Buffer, 0, 10),
+		fileByIndex:   make([]string, 0, 10),
+		textView:      textView,
+		fileList:      fileList,
+		app:           app,
+	}
 
-	con.fileList = fileList
-	con.textView = textView
-	con.indexOf = make(map[string]int)
-	con.buffers = make(map[string]*logBuffer)
-	con.invIndexOf = make([]string, 0, 10)
+	app.SetInputCapture(func(e *tcell.EventKey) *tcell.EventKey {
+		if e.Key() == tcell.KeyCtrlL {
+			if i := fileList.GetCurrentItem(); i < len(controller.bufferByIndex) {
+				b := controller.bufferByIndex[i]
+				b.Reset()
+			}
+			textView.Clear()
+			app.Draw()
+			return nil
+		}
+		return e
+	})
 
-	fileList.SetChangedFunc(func(i int, title string, description string, shortcut rune) {
-		filename := con.invIndexOf[i]
-		b := con.buffers[filename]
-		fmt.Fprintln(con.textView, b.buff.String())
-		con.fileList.SetItemText(i, filename, "")
-	}).SetCurrentItem(1)
+	fileList.SetSelectedBackgroundColor(tcell.ColorDarkSlateBlue)
 
-	return con
+	fileList.SetChangedFunc(func(i int, title, subtitle string, sc rune) {
+		if i < len(controller.bufferByIndex) {
+			textView.Clear()
+			b := controller.bufferByIndex[i]
+			fmt.Fprintln(textView, b.String())
+			controller.currentFile = controller.fileByIndex[i]
+		}
+	})
+	return controller
 }
 
-func (c *controller) switchTo(filename string) {
-	c.currentFile = filename
+func (c *controller) write(filename, text string) {
+	if len(text) < 1 {
+		return
+	}
 
-	if _, ok := c.indexOf[filename]; !ok {
-		i := len(c.invIndexOf)
-		c.buffers[filename] = &logBuffer{buff: &bytes.Buffer{}}
-		c.indexOf[filename] = i
-		c.invIndexOf = append(c.invIndexOf, filename)
+	b := c.buffers[filename]
+	htxt := atog.Highlight(strings.TrimFunc(text, unicode.IsSpace))
+
+	fmt.Fprintln(b, htxt)
+	if c.currentFile == filename {
+		fmt.Fprintln(c.textView, htxt)
+	}
+}
+
+func (c *controller) createComponentsIfNeeded(filename string) {
+	if _, ok := c.buffers[filename]; !ok {
+		i := len(c.bufferByIndex)
+		buffer := &bytes.Buffer{}
+
+		c.buffers[filename] = buffer
+		c.fileByIndex = append(c.fileByIndex, filename)
+		c.bufferByIndex = append(c.bufferByIndex, buffer)
+		if c.currentFile == "" {
+			c.currentFile = filename
+		}
+
 		c.fileList.AddItem(filename, "", shortcut(i), nil)
 	}
-}
-
-func (c *controller) write(s string) {
-	filename := c.currentFile
-	b := c.buffers[filename]
-	i := c.indexOf[filename]
-	b.buff.WriteString(atog.Highlight(s))
-	c.fileList.SetItemText(i, fmt.Sprintf("[*] %v", filename), "")
-}
-
-func (b *logBuffer) Write(p []byte) (n int, err error) {
-	pc := len(p)
-
-	if pc < 1 {
-		return 0, nil
-	}
-
-	b.dirty = true
-	return b.buff.Write(p)
-}
-
-func (b *logBuffer) flush(tv *tview.TextView) {
-	fmt.Fprint(tv, b.buff.String())
-	tv.ScrollToEnd()
-	b.dirty = false
 }

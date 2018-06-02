@@ -15,6 +15,7 @@ func isFileTag(line string) bool {
 }
 
 func getFilename(line string) string {
-	s := strings.TrimPrefix(line, "==> ")
-	return strings.TrimSuffix(s, " <==\n")
+	s := strings.TrimFunc(line, unicode.IsSpace)
+	s = strings.TrimPrefix(s, "==> ")
+	return strings.TrimSuffix(s, " <==")
 }
